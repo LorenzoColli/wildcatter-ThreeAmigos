@@ -5,10 +5,15 @@
 # To use:
 #   $ conda env create -f environment.yml
 #   $ conda activate wildcatter
-name: wildcatter
+name: wildcatter-ThreeAmigos
 dependencies:
   - python=3.9
   - pip
   - pip:
       - --editable .
       - ipykernel
+      - numpy
+      - gym
+      - sb3_contrib
+      - tensorflow
+      - ray
