@@ -16,4 +16,4 @@ dependencies:
       - gym
       - sb3_contrib
       - tensorflow
-      - ray
+      - ray[all]
