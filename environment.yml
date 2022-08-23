@@ -17,3 +17,4 @@ dependencies:
       - sb3_contrib
       - tensorflow
       - ray[all]
+      - bayesian-optimization
