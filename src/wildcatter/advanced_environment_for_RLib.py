@@ -23,7 +23,8 @@ class AdvancedDriller(gym.Env):  # type: ignore
         - random --- each cell is a coin flip.
         - random_pockets --- a small number of valuable targets at 
           random locations. Targets are squat triangles in shape.
-          Number and size of targets depend on size of env.
+          Size of targets depend on size of env. Number depends on
+          number of available wells.
         - from_csv --- subsurface grid is provided from an external
           csv file.
     - nrow [int]: number of rows (i.e., depths) of subsurface grid.
@@ -102,9 +103,12 @@ class AdvancedDriller(gym.Env):  # type: ignore
                                     ]
         # Sequence of drilling directions forms complete circle.
         # This simplifies preventing 180-degree turns, which consist
-        # of 3 directions either in sequence (e.g., 1-2-3 or 2-3-0)
+        # of 3 directions either in sequence (i.e.: 1-2-3, 2-3-0, 3-0-1, 0-1-2)
         # or in reverse sequence (e.g., 3-2-1 or 0-3-2)
 
+        # Observation space augments the actual observed state with an action mask
+        # that is used by the custom model to prevent the actor from taking
+        # illegal moves
         self.observation_space = Dict({
             "action_mask": Box(0, 1, shape=(self.max_avail_actions, ), dtype="int"),
             "avail_actions": Box(-1, 1, shape=(self.max_avail_actions, ), dtype="int"),
