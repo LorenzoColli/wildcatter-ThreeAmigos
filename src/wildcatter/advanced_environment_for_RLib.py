@@ -128,7 +128,8 @@ class AdvancedDriller(gym.Env):  # type: ignore
             drilling = [self.pipe_used < self.available_pipe and self.state[z + dz, x + dx]>=0 for dz, dx in self._drilling_directions]
             new_well = [False] * (self.ncol-2)
         
-        end_campaign = [True]
+        end_campaign = [True] # Stop drilling current well / stop campaign is always valid.
+        
         # Using modular arithmetic to prevent 180-degree turns
         if None in self.last_2_actions: # No risk of U-turn
             pass
@@ -157,7 +158,9 @@ class AdvancedDriller(gym.Env):  # type: ignore
         done = False
         info: dict[str, Any] = {}
         
-        # If ray tries to interact with the environment without going through our custom model
+        # If actor tries to interact with the environment without going through
+        # our custom model, do nothing and give large penalty for taking illegal
+        # action.
         legal_actions = self.action_masks()
         if not legal_actions[action]:
             obs = dict({
@@ -195,7 +198,7 @@ class AdvancedDriller(gym.Env):  # type: ignore
             if self.surface_hole_location != None: # Stop drilling, extract
                 oil = self.extract()
                 self.production += oil
-                reward = oil
+                reward = oil # Some reward
                 self.bit_location = None
                 self.surface_hole_location = None
             else: # End campaign, sell oil
@@ -203,6 +206,10 @@ class AdvancedDriller(gym.Env):  # type: ignore
                 reward = self.oil_price * self.production
 
         self.update_state()
+
+        # Update list of actions
+        self.last_2_actions[0]=self.last_2_actions[1]
+        self.last_2_actions[1]=action
         
         obs = dict({
             "action_mask": np.asarray(self.action_masks(), dtype=int),
