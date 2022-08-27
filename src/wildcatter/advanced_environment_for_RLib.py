@@ -111,7 +111,6 @@ class AdvancedDriller(gym.Env):  # type: ignore
         # illegal moves
         self.observation_space = Dict({
             "action_mask": Box(0, 1, shape=(self.max_avail_actions, ), dtype="int"),
-            "avail_actions": Box(-1, 1, shape=(self.max_avail_actions, ), dtype="int"),
             "state": Box(low=-10, high=10, shape=(self.nrow, self.ncol), dtype="int"),
         })
         
@@ -163,7 +162,6 @@ class AdvancedDriller(gym.Env):  # type: ignore
         if not legal_actions[action]:
             obs = dict({
                 "action_mask": np.asarray(self.action_masks(), dtype=int),
-                "avail_actions": np.ones(self.max_avail_actions),
                 "state": self.state,
             })
 
@@ -208,7 +206,6 @@ class AdvancedDriller(gym.Env):  # type: ignore
         
         obs = dict({
             "action_mask": np.asarray(self.action_masks(), dtype=int),
-            "avail_actions": np.ones(self.max_avail_actions),
             "state": self.state,
         })
 
@@ -295,7 +292,6 @@ class AdvancedDriller(gym.Env):  # type: ignore
         
         obs = dict({
             "action_mask": np.asarray(self.action_masks(), dtype=int),
-            "avail_actions": np.ones(self.max_avail_actions),
             "state": self.state,
         })
         return obs
