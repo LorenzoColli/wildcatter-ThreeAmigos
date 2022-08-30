@@ -180,8 +180,8 @@ class AdvancedDriller(gym.Env):  # type: ignore
                 "action_mask": np.asarray(self.action_masks(), dtype=int),
                 "state": dict({"subsurface": self.state,
                                "funds": self.funds,
-                              }),
-
+                }),
+            })
             return obs, -100, done, info
 
         if action < 4: # Drill!
@@ -271,20 +271,21 @@ class AdvancedDriller(gym.Env):  # type: ignore
             max_num_pockets = max(int(np.sqrt((self.nrow-2)*(self.ncol-2))/6),
                                   1)
             # Draw random number of pockets
-            num_pockets = self._rng.integers(low=1, high=max_num_pockets)
+            num_pockets = self._rng.integers(low=1, high=max_num_pockets+1)
             # Divide oil between pockets
             oil_in_pocket = np.zeros(num_pockets)
+            min_oil = int(min(oil_to_bury//num_pockets,2))
             for i in range(num_pockets-1):
                 max_oil=min(oil_to_bury-(num_pockets-i-1)+1,oil_to_bury//2)
-                oil_in_pocket[i] = self._rng.integers(low=1, high=max_oil)
+                oil_in_pocket[i] = self._rng.integers(low=min_oil, high=max_oil)
                 oil_to_bury -= oil_in_pocket[i]
             oil_in_pocket[-1] = oil_to_bury
             sorted_pockets = np.sort(oil_in_pocket)
             # Starting from the largest pocket, put them underground at random
             # locations
             for oil in reversed(sorted_pockets):
-                pocket_width = int(np.ceil(np.sqrt(oil) * 6 / 3))
-                pocket_height = int(np.sqrt(oil) * 3 // 6)
+                pocket_width = int(np.ceil(np.sqrt(oil) * 2))
+                pocket_height = int(np.ceil(oil // pocket_width))+1
                 # Choose upper-left corner of pocket at random, preventing
                 # obvious out-of-bounds
                 leftmost_col = self._rng.integers(
@@ -296,7 +297,7 @@ class AdvancedDriller(gym.Env):  # type: ignore
                 # other pockets. In the unlikely case it's really hard to find
                 # a suitable spot, stop looking. Two overlapping pockets will
                 # be drawn.
-                while (1 in self.model[upper_row:upper_row+pocket_height+3,
+                while (1 in self.model[upper_row:upper_row+pocket_height,
                                      leftmost_col:leftmost_col+pocket_width]
                        and n_iter < 100):
                     n_iter += 1
@@ -304,36 +305,25 @@ class AdvancedDriller(gym.Env):  # type: ignore
                         low=1, high=self.ncol - pocket_width -1)
                     upper_row = self._rng.integers(
                         low=1, high=self.nrow - (pocket_height +3) -1)
-                # Draw pocket cap
+                # Draw pocket point
                 self.model[upper_row,
                            leftmost_col+int(np.floor(pocket_width/2))] = 1
-                # Draw bulk of pocket
+                # Draw pocket rounded cap
                 factor = 0.25
                 rightmost_col = leftmost_col + pocket_width
-                for row in range(1,pocket_height+1):
-                    empty = int(np.floor(pocket_width * factor))
+                empty = int(np.floor(pocket_width * factor))
+                row = 1
+                while oil>=pocket_width:
                     self.model[upper_row+row,
                                leftmost_col+empty : rightmost_col-empty] = 1
+                    row += 1
                     factor = factor * 0.5
-                
-                # Deal with remaining oil
-                oil_remaining = oil - np.sum(
-                    self.model[upper_row:upper_row+pocket_height,
-                               leftmost_col:rightmost_col])
-                if 0<oil_remaining<=pocket_width:
-                    self.model[upper_row+pocket_height+1,
-                               leftmost_col :
-                                   int(rightmost_col
-                                       -(pocket_width - oil_remaining))
-                              ] = 1
-                elif oil_remaining>pocket_width:
-                    self.model[upper_row+pocket_height+1,
-                               leftmost_col : rightmost_col] = 1
-                    self.model[upper_row + pocket_height + 2,
-                               leftmost_col : 
-                                   int(rightmost_col -
-                                       (2 * pocket_width - oil_remaining))
-                              ] = 1
+                    empty = int(np.floor(pocket_width * factor))
+                    oil -= pocket_width - 2 * empty
+                # Deal with remaining oil, if any
+                if oil>0:
+                    self.model[upper_row+row,
+                               leftmost_col : int(leftmost_col + oil) ] = 1
         else:
             self.model = self.initial_model.copy()
         
