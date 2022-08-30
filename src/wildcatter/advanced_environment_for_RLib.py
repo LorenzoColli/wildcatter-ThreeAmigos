@@ -33,9 +33,8 @@ class AdvancedDriller(gym.Env):  # type: ignore
       subsurface grid. Needed if model_type is random.
     - model_path [str]: path to csv file.
     - delim [str]: value delimiter of the csv file.
-    - available_pipe [int]: number of pipe lengths available for
-      drilling campaign. I.e., number of cells that can be drilled.
-    - available_wells [int]: number of wells that can be opened.
+    - funds [float]: funds available at the beginning of the drilling campaign.
+      Once the agent runs out of funds, it is game over.
     - oil_price [float]: weight for rewarding oil extraction.
     - relocation_cost [float]: cost of moving the drill to a new
       well. Penalizes extra distance between wells, giving negative
@@ -77,16 +76,12 @@ class AdvancedDriller(gym.Env):  # type: ignore
             raise NotImplmentedError("Model Type Unknown")
         
         self.initial_funds = env_config["funds"]
-        #self.available_pipe = env_config["available_pipe"]
-        #self.available_wells = env_config["available_wells"]
         self.oil_price = env_config["oil_price"]
         self.relocation_cost = env_config["relocation_cost"]
         self.drilling_cost = env_config["drilling_cost"]
         self.drilling_depth_markup = env_config["drilling_depth_markup"]
 
         self.production = 0
-        #self.expenses = 0
-        #self.pipe_used = 0
         self.funds = 0
         self.wells_started = 0
         self.trajectory = None
@@ -114,12 +109,13 @@ class AdvancedDriller(gym.Env):  # type: ignore
         # mask that is used by the custom model to prevent the actor from
         # taking illegal moves.
         self.observation_space = Dict({
-            "action_mask": Box(0, 1, shape=(self.max_avail_actions),
+            "action_mask": Box(0, 1, shape=(self.max_avail_actions, ),
                                dtype="int"),
             "state": Dict({
                 "subsurface": Box(low=-10, high=10,
                                   shape=(self.nrow, self.ncol), dtype="int"),
-                "funds": Box(shape=(1), dtype="float"),
+                "funds": Box(low=-np.inf, high=np.inf, shape=(1,),
+                             dtype="float"),
                 }),
         })
         
@@ -131,15 +127,13 @@ class AdvancedDriller(gym.Env):  # type: ignore
             # Drilling impossible: either start a well (if available) or end
             # campaign.
             drilling = [False] * 4
-            new_well = [self.wells_started < self.available_wells
-                        and ground == -10
+            new_well = [ground == -10
                         for ground in self.state[0, 1: self.ncol-1]]
         else:
             # Drilling possible if there's pipe available. Just prevent
             # drilling into faults, pipes and model boundaries.
             z, x = self.bit_location
-            drilling = [self.pipe_used < self.available_pipe
-                        and self.state[z + dz, x + dx]>=0
+            drilling = [self.state[z + dz, x + dx]>=0
                         for dz, dx in self._drilling_directions]
             new_well = [False] * (self.ncol-2)
         
@@ -184,8 +178,9 @@ class AdvancedDriller(gym.Env):  # type: ignore
         if not legal_actions[action]:
             obs = dict({
                 "action_mask": np.asarray(self.action_masks(), dtype=int),
-                "state": self.state,
-            })
+                "state": dict({"subsurface": self.state,
+                               "funds": self.funds,
+                              }),
 
             return obs, -100, done, info
 
@@ -195,7 +190,6 @@ class AdvancedDriller(gym.Env):  # type: ignore
             newrow, newcol = new_location
             self.bit_location = new_location
             self.trajectory[self.wells_started-1].append(new_location)
-            self.pipe_used += 1
             cost = self.drilling_cost + self.drilling_depth_markup * newrow
             self.funds -= cost
             reward = - cost
@@ -222,13 +216,14 @@ class AdvancedDriller(gym.Env):  # type: ignore
                 self.surface_hole_location = None
             else: # End campaign, sell oil
                 done = True
-                reward = self.oil_price * self.production
+                # Add remaining funds to final reward
+                reward = self.oil_price * self.production + self.funds
 
         self.update_state()
 
         # Update list of actions
         self.last_2_actions[0]=self.last_2_actions[1]
-        self.last_2_actions[1]=action
+        self.last_2_actions[1]=action if action < 4 else None
         
         if self.funds < 0:
             done = True
@@ -280,7 +275,7 @@ class AdvancedDriller(gym.Env):  # type: ignore
             # Divide oil between pockets
             oil_in_pocket = np.zeros(num_pockets)
             for i in range(num_pockets-1):
-                max_oil=min(oil_to_bury-(self.available_wells-i-1)+1,oil_to_bury//2)
+                max_oil=min(oil_to_bury-(num_pockets-i-1)+1,oil_to_bury//2)
                 oil_in_pocket[i] = self._rng.integers(low=1, high=max_oil)
                 oil_to_bury -= oil_in_pocket[i]
             oil_in_pocket[-1] = oil_to_bury
@@ -352,7 +347,6 @@ class AdvancedDriller(gym.Env):  # type: ignore
         self.bit_location = self.surface_hole_location
         self.trajectory = []
         self.production = 0
-        self.expenses = 0
         self.funds = self.initial_funds
         self.wells_started = 0
         
