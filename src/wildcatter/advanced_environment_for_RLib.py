@@ -111,12 +111,10 @@ class AdvancedDriller(gym.Env):  # type: ignore
         self.observation_space = Dict({
             "action_mask": Box(0, 1, shape=(self.max_avail_actions, ),
                                dtype="int"),
-            "state": Dict({
-                "subsurface": Box(low=-10, high=10,
-                                  shape=(self.nrow, self.ncol), dtype="int"),
-                "funds": Box(low=-np.inf, high=np.inf, shape=(1,),
-                             dtype="float"),
-                }),
+            "obs": Box(low=np.array([-10]*(self.nrow * self.ncol) + [-np.inf]),
+                       high=np.array([10]*(self.nrow * self.ncol) + [np.inf]),
+                         shape=(self.nrow * self.ncol + 1,),
+                         dtype="float"),
         })
         
         self.reset()
@@ -178,9 +176,7 @@ class AdvancedDriller(gym.Env):  # type: ignore
         if not legal_actions[action]:
             obs = dict({
                 "action_mask": np.asarray(self.action_masks(), dtype=int),
-                "state": dict({"subsurface": self.state,
-                               "funds": self.funds,
-                }),
+                "obs": np.concatenate((self.state.flatten(),[self.funds])),
             })
             return obs, -100, done, info
 
@@ -231,9 +227,7 @@ class AdvancedDriller(gym.Env):  # type: ignore
         
         obs = dict({
             "action_mask": np.asarray(self.action_masks(), dtype=int),
-            "state": dict({"subsurface": self.state,
-                           "funds": self.funds,
-            }),
+            "obs": np.concatenate((self.state.flatten(),[self.funds])),
         })
 
         return obs, reward, done, info
@@ -342,9 +336,7 @@ class AdvancedDriller(gym.Env):  # type: ignore
         
         obs = dict({
             "action_mask": np.asarray(self.action_masks(), dtype=int),
-            "state": dict({"subsurface": self.state,
-                           "funds": self.funds,
-            }),
+            "obs": np.concatenate((self.state.flatten(),[self.funds])),
         })
         return obs
 
