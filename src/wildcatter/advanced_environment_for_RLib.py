@@ -192,9 +192,9 @@ class AdvancedDriller(gym.Env):  # type: ignore
 
         elif action < 3 + (self.ncol -2): # Open new well!
             newcol = action - 3
-            try:
-                previous_well = self.surface_hole_location[1]
-            except TypeError:
+            try: # Last well, first location, column index
+                previous_well = self.trajectory[-1][0][1]
+            except IndexError: # If this is the very first well
                 previous_well = newcol
             self.surface_hole_location = [0, newcol]
             self.bit_location = [0, newcol]
