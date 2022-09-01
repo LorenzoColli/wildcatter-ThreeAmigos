@@ -212,8 +212,7 @@ class AdvancedDriller(gym.Env):  # type: ignore
                 self.surface_hole_location = None
             else: # End campaign, sell oil
                 done = True
-                # Add remaining funds to final reward
-                reward = self.oil_price * self.production + self.funds
+                reward = self.oil_price * self.production
 
         self.update_state()
 
